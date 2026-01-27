@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+option java_package = "com.marketplace.grpc";
+option java_multiple_files = true;
+
+service ProductGrpcService {
+  rpc validateProduct (ProductRequest) returns (ProductResponse);
+}
+
+message ProductRequest {
+  string productId = 1;
+  int32 quantity = 2;
+}
+
+message ProductResponse {
+  bool isAvailable = 1;
+  double price = 2;
+  string message = 3;
+}

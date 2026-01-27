@@ -1,0 +1,68 @@
+services:
+  order-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    platform: linux/amd64
+    container_name: order-service
+    ports:
+      - "8084:8084"
+    expose:
+      - "8084"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-db:5432/order_db
+      - SPRING_DATASOURCE_USERNAME=order_user
+      - SPRING_DATASOURCE_PASSWORD=order_pass
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    networks:
+      - backend
+    # 🔥 AVTOMATIK DƏYİŞİKLİK ÜÇÜN - KOD YAZANDA AVTOMATIK REBUILD EDƏCƏK
+    develop:
+      watch:
+        # Java kodları dəyişəndə avtomatik rebuild
+        - action: rebuild
+          path: ./src/main/java
+          ignore:
+            - "**/*.class"
+        # Resources dəyişəndə (application.yml və s.) avtomatik restart
+        - action: sync+restart
+          path: ./src/main/resources
+          target: /app/resources
+        # build.gradle dəyişəndə avtomatik rebuild
+        - action: rebuild
+          path: ./build.gradle
+        # Proto fayllar dəyişəndə (əgər gRPC varsa)
+        - action: rebuild
+          path: ./src/main/proto
+          ignore:
+            - "**/*.proto~"
+
+  postgres-db:
+    image: postgres:16-alpine
+    container_name: order-postgres
+    environment:
+      POSTGRES_USER: order_user
+      POSTGRES_PASSWORD: order_pass
+      POSTGRES_DB: order_db
+    volumes:
+      - order-pgdata:/var/lib/postgresql/data
+    networks:
+      - backend
+    # PostgreSQL üçün health check
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U order_user -d order_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+networks:
+  backend:
+    driver: bridge
+    name: marketplace-backend
+
+volumes:
+  order-pgdata:

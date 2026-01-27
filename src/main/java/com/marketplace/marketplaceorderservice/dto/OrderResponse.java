@@ -19,7 +19,6 @@ public class OrderResponse {
     private Integer quantity;
     private BigDecimal price;
 
-    @Enumerated(EnumType.STRING)
     private OrderStatus orderStatus;
 
     private LocalDateTime orderDate;

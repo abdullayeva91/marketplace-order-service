@@ -24,32 +24,79 @@ public class OrderServiceController {
         this.orderService = orderService;
         this.orderMapper = orderMapper;
     }
-    @PostMapping
-    public ResponseEntity<OrderResponse> createOrder(Long userId, @Valid @RequestBody OrderCreateRequest orderCreateRequest) {
-        Order order = orderService.createOrder(userId, orderCreateRequest);
 
+    @PostMapping
+    public ResponseEntity<OrderResponse> createOrder(
+            @RequestHeader(value = "X-Auth-User-Id", required = false) String userIdHeader,
+            @Valid @RequestBody OrderCreateRequest orderCreateRequest) {
+
+        if (userIdHeader == null || userIdHeader.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        Long userId = Long.parseLong(userIdHeader);
+        Order order = orderService.createOrder(userId, orderCreateRequest);
         return ResponseEntity.status(HttpStatus.CREATED).body(orderMapper.toResponse(order));
     }
+
     @GetMapping
-    public ResponseEntity<List<OrderResponse>> getAllOrders() {
+    public ResponseEntity<List<OrderResponse>> getAllOrders(
+            @RequestHeader(value = "X-Auth-User-Role", required = false) String role) {
+
+
         List<OrderResponse> responses = orderService.getAllOrders().stream()
                 .map(orderMapper::toResponse)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(responses);
     }
-    @GetMapping("/{id}")
-    public ResponseEntity<Order> getOrderById(@PathVariable Long id) {
-        return ResponseEntity.ok(orderService.getOrderById(id));
-    }
-    @GetMapping("/user/{userId}")
-    public ResponseEntity<List<OrderResponse>> getOrdersByUserId(@PathVariable Long userId) {
+
+    @GetMapping("/my-orders")
+    public ResponseEntity<List<OrderResponse>> getMyOrders(
+            @RequestHeader(value = "X-Auth-User-Id", required = false) String userIdHeader) {
+
+        if (userIdHeader == null || userIdHeader.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        Long userId = Long.parseLong(userIdHeader);
         List<OrderResponse> responses = orderService.getOrdersByUserId(userId).stream()
                 .map(orderMapper::toResponse)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(responses);
     }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<OrderResponse> getOrderById(
+            @PathVariable Long id,
+            @RequestHeader(value = "X-Auth-User-Id", required = false) String userIdHeader,
+            @RequestHeader(value = "X-Auth-User-Role", required = false) String role) {
+
+        if (userIdHeader == null || userIdHeader.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        Order order = orderService.getOrderById(id);
+        Long userId = Long.parseLong(userIdHeader);
+
+        if (!order.getUserId().equals(userId) && !"ADMIN".equals(role)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        return ResponseEntity.ok(orderMapper.toResponse(order));
+    }
+
+
     @PostMapping("/{id}/update-status")
-    public void updateStatus(@PathVariable Long id, @RequestParam String status) {
+    public ResponseEntity<Void> updateStatus(
+            @PathVariable Long id,
+            @RequestParam String status,
+            @RequestHeader(value = "X-Auth-User-Role", required = false) String role) {
+
+        if (!"ADMIN".equals(role)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
         orderService.updateOrderStatus(id, status);
+        return ResponseEntity.ok().build();
     }
 }
